@@ -85,7 +85,7 @@ The camera reads `gp_cardvr_upgrade.bin` and then removes that file.
 
 ## Reset hole
 
-The hole next to the USB-C port is the reset hole. The speaker is a different grille.
+The hole next to the USB-C port is the reset hole.
 
 If the camera does not respond, push the reset hole with a thin pin.
 
