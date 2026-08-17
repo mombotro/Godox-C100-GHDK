@@ -11,6 +11,7 @@
   python3 tools/c100.py gui                 desktop window
 
 Never writes firmware/ORIGINAL/. Always leaves RESTORE_ORIGINAL.bin on the card.
+Refuses any image that is not stock or stock with new sounds.
 """
 from __future__ import annotations
 
@@ -28,7 +29,15 @@ VAULT = ROOT / "firmware" / "ORIGINAL" / "gp_cardvr_upgrade.bin"
 MEOW_BIN = ROOT / "firmware" / "gp_cardvr_upgrade.MEOW.bin"
 MUTE_BIN = ROOT / "firmware" / "gp_cardvr_upgrade.MUTED.bin"
 EXPECTED_ORIG = "769733179a81f943c300c4e1a49cec95ff9d2c793618fe037fc8575e95279b64"
+FW_SIZE = 1841152
 CARD_CANDIDATES = ("Untitled 2", "Untitled", "NO NAME", "GODDX")
+FLASH_HELP = (
+    "Do not interrupt the flash. Do not remove the card. "
+    "Do not remove power. Do not move the switch.\n"
+    "The Godox logo comes up and holds for about 15 seconds. "
+    "That is the flash. Then the camera turns off. "
+    "Then the camera turns on with the new firmware."
+)
 
 # File offsets of the five embedded RIFF blobs (11.025 kHz mono).
 # Resource pack at 0x170000 uses 512-byte clusters: BEEP=7, CAMERA=0xf,
@@ -88,13 +97,15 @@ def require_restore(card: Path) -> None:
 
 def stage_image(img: bytes, label: str, *, eject: bool) -> None:
     vault_bytes()
+    assert_sound_only(img, what=label)
     card = require_card()
     require_restore(card)
     dest = card / "gp_cardvr_upgrade.bin"
     dest.write_bytes(img)
     subprocess.check_call(["sync"])
     if hashlib.sha256(dest.read_bytes()).digest() != hashlib.sha256(img).digest():
-        raise SystemExit("staged hash mismatch")
+        dest.unlink(missing_ok=True)
+        raise SystemExit("staged hash mismatch — removed the upgrade file")
     print(f"staged {label}  {hashlib.sha256(img).hexdigest()}")
     print(f"RESTORE left on {card / 'RESTORE_ORIGINAL.bin'}")
     if eject:
@@ -103,7 +114,7 @@ def stage_image(img: bytes, label: str, *, eject: bool) -> None:
             print("ejected")
         except (subprocess.CalledProcessError, FileNotFoundError):
             print("eject the card in Finder, then flash")
-    print("Flash: card in camera, unplug → off → on ~10s → off → on.")
+    print(FLASH_HELP)
 
 
 # --- WAV slots ----------------------------------------------------------------
@@ -491,6 +502,113 @@ def route_reps_to_test(
     return reps
 
 
+def _diff_runs(a: bytes, b: bytes) -> list[tuple[int, int]]:
+    """Inclusive-start, exclusive-end byte runs where a and b differ."""
+    runs: list[tuple[int, int]] = []
+    i = 0
+    n = len(a)
+    mv_a = memoryview(a)
+    mv_b = memoryview(b)
+    while i < n:
+        if mv_a[i] == mv_b[i]:
+            i += 1
+            continue
+        j = i + 1
+        while j < n and mv_a[j] != mv_b[j]:
+            j += 1
+        runs.append((i, j))
+        i = j
+    return runs
+
+
+def _allowed_sound_ranges(vault: bytes) -> list[tuple[int, int]]:
+    """Byte ranges a sound build may change: WAV blobs and play() names."""
+    ranges = []
+    for slot in SLOTS:
+        info = slot_info(vault, slot)
+        end = slot["off"] + info["blob_sz"]
+        if slot["n"] == 5:
+            end = slot["off"] + TEST_BLOB
+        ranges.append((slot["off"], end))
+    for _which, (off, old) in _PLAY_NAME.items():
+        ranges.append((off, off + len(old)))
+    return ranges
+
+
+def _range_covers(start: int, end: int, ranges: list[tuple[int, int]]) -> bool:
+    return any(lo <= start and end <= hi for lo, hi in ranges)
+
+
+def _play_name_ok(img: bytes) -> list[str]:
+    bad = []
+    for which, (off, old) in _PLAY_NAME.items():
+        cur = bytes(img[off : off + len(old)])
+        new = b"TEST.WAV" + b"\x00" * (len(old) - len(b"TEST.WAV"))
+        if cur not in (old, new):
+            bad.append(f"{which} name at {off:#x} is {cur!r}, not stock or TEST.WAV")
+    return bad
+
+
+def _slots_ok(img: bytes) -> list[str]:
+    bad = []
+    for slot in SLOTS:
+        try:
+            info = slot_info(img, slot)
+        except SystemExit as e:
+            bad.append(f"slot {slot['n']}: {e}")
+            continue
+        fmt = info["fmt"]
+        if fmt["format"] != 1 or fmt["ch"] != 1 or fmt["rate"] != 11025:
+            bad.append(
+                f"slot {slot['n']}: need PCM mono 11025 Hz, got "
+                f"fmt={fmt['format']} ch={fmt['ch']} rate={fmt['rate']}"
+            )
+        if slot["n"] < 5 and fmt["bits"] != 16:
+            bad.append(f"slot {slot['n']}: need 16-bit, got {fmt['bits']}")
+        if slot["n"] == 5 and fmt["bits"] not in (8, 16):
+            bad.append(f"slot 5: need 8-bit or 16-bit, got {fmt['bits']}")
+        if slot["n"] == 5 and info["blob_sz"] != TEST_BLOB:
+            bad.append(f"slot 5: blob {info['blob_sz']} != {TEST_BLOB}")
+    return bad
+
+
+def sound_only_violations(img: bytes) -> list[str]:
+    """Why this image is not stock-or-sounds. Empty list means safe to flash."""
+    vault = vault_bytes()
+    bad: list[str] = []
+    if len(img) != FW_SIZE:
+        bad.append(f"size {len(img)} != {FW_SIZE}")
+        return bad
+    if len(vault) != FW_SIZE:
+        bad.append("vault size is not the stock image")
+        return bad
+    if img == vault:
+        return []
+    allowed = _allowed_sound_ranges(vault)
+    for start, end in _diff_runs(img, vault):
+        if not _range_covers(start, end, allowed):
+            bad.append(f"differs from stock at {start:#x}..{end:#x} (not a sound slot)")
+    bad.extend(_play_name_ok(img))
+    bad.extend(_slots_ok(img))
+    return bad
+
+
+def assert_sound_only(img: bytes, *, what: str = "firmware") -> None:
+    """Refuse any image that changes code, extras, or anything but sounds.
+
+    Stock is allowed. Sound builds may change WAV PCM (and rebuild TEST.WAV)
+    and may retarget shutter/power-on to TEST.WAV. Nothing else.
+    """
+    if img == vault_bytes():
+        return
+    bad = sound_only_violations(img)
+    if bad:
+        raise SystemExit(
+            f"{what} is not stock or sound-only — refusing to write it:\n"
+            + "\n".join(f"  {line}" for line in bad)
+        )
+
+
 def compose_firmware(
     *,
     reps: dict[int, Path | str] | None = None,
@@ -508,7 +626,9 @@ def compose_firmware(
     if reps:
         for line in patch_slots(img, reps, volume=volume):
             print(line)
-    return bytes(img)
+    data = bytes(img)
+    assert_sound_only(data, what="composed firmware")
+    return data
 
 
 # --- commands -----------------------------------------------------------------
@@ -556,8 +676,8 @@ def cmd_stage(args: argparse.Namespace) -> None:
         if not p.is_file():
             raise SystemExit(f"not a file: {p}")
         data = p.read_bytes()
-        if len(data) != 1841152:
-            raise SystemExit(f"{p} is {len(data)} bytes, expected 1841152")
+        if len(data) != FW_SIZE:
+            raise SystemExit(f"{p} is {len(data)} bytes, expected {FW_SIZE}")
         label = p.name
     stage_image(data, label, eject=not args.keep)
 
@@ -623,8 +743,9 @@ def cmd_sounds(args: argparse.Namespace) -> None:
         raise SystemExit("nothing to do: pass --test-for and/or --1 FILE … --5 FILE / --mute / --meow")
     if args.base:
         img = bytearray(Path(args.base).read_bytes())
-        if len(img) != 1841152:
-            raise SystemExit("base image must be 1841152 bytes")
+        if len(img) != FW_SIZE:
+            raise SystemExit(f"base image must be {FW_SIZE} bytes")
+        assert_sound_only(bytes(img), what=args.base)
         volume = parse_volume(getattr(args, "volume", None) or 100)
         if test_for:
             retarget_play_to_test(img, test_for)
@@ -634,6 +755,7 @@ def cmd_sounds(args: argparse.Namespace) -> None:
             for line in patch_slots(img, reps, volume=volume):
                 print(line)
         data = bytes(img)
+        assert_sound_only(data, what="composed firmware")
     else:
         volume = parse_volume(getattr(args, "volume", None) or 100)
         data = compose_firmware(reps=reps or None, test_for=test_for, volume=volume)

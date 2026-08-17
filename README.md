@@ -4,7 +4,9 @@ Godox C100 GHDK is a tool that changes the five firmware sounds on a Godox C100.
 
 This kit does not contain official stock firmware. You must add the official firmware file. It does include one research image. See `firmware/gp_cardvr_upgrade.BAYER.bin`.
 
-**WARNING:** A bad firmware image can stop the camera. The camera can refuse to start. A card with stock firmware does not always repair this.
+**WARNING:** Do not interrupt the flash. A flash that stops in the middle can stop the camera. The camera can refuse to start. A card with stock firmware does not always repair this.
+
+This tool writes stock firmware, or stock firmware with new sounds. It does not change the camera code. A sound change cannot brick the camera if you let the flash finish.
 
 ## Contents
 
@@ -80,16 +82,19 @@ The card must be on a card reader. Do not use the camera USB port for this step.
 2. Write `gp_cardvr_upgrade.bin` with the tool.
 3. Eject the card.
 4. Remove power from the camera. Set the switch to off.
-
 5. Put the card in the camera.
 6. Connect USB-C power.
-7. Set the switch to photo. Wait 10 through 15 seconds.
-8. Set the switch to off. Disconnect power.
-9. Set the switch to photo again.
+7. Set the switch to photo.
+
+The Godox logo comes up. The logo holds for about 15 seconds. That is the flash. Then the camera turns off. Then the camera turns on again with the new firmware.
+
+**WARNING:** Do not interrupt the flash. Do not remove the card. Do not remove power. Do not move the switch while the logo holds.
 
 The camera reads `gp_cardvr_upgrade.bin` and then removes that file.
 
-**CAUTION:** Do not add a write hook or other code change to the firmware extra. That change can stop the camera.
+The tool refuses to write an image that is not stock firmware or stock firmware with new sounds.
+
+**CAUTION:** Do not add a write hook or other code change to the firmware extra. That change can stop the camera. This tool will not write that kind of image.
 
 ## Reset hole
 
@@ -104,3 +109,13 @@ If the camera does not respond, push the reset hole with a thin pin.
 The tool and the two WAV files are MIT. Official stock firmware is not in this kit. Godox owns that firmware.
 
 `firmware/gp_cardvr_upgrade.BAYER.bin` is a research image. It is stock firmware plus an extra that reads the sensor id. Godox owns the stock code.
+
+## Disclaimer
+
+This kit is not an official Godox product. Godox did not make it. Godox did not approve it.
+
+The kit has no warranty. It is provided as is.
+
+A firmware change can stop the camera. The camera can refuse to start. A card with stock firmware does not always repair this.
+
+The author is not responsible if the camera does not work after you use this kit.

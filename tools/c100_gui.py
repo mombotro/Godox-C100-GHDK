@@ -24,6 +24,7 @@ class App(tk.Tk):
         self.geometry("780x680")
         self._q: queue.Queue[tuple[str, bool]] = queue.Queue()
         self._busy = False
+        self._done_dialog: str | None = None
         self._test_for = tk.StringVar(value="none")
         self._volume = tk.IntVar(value=100)
         self._vol_label = tk.StringVar(value="100%")
@@ -57,6 +58,12 @@ class App(tk.Tk):
         ttk.Button(row, text="Write to card", command=self.write_card).pack(side=tk.LEFT, padx=2)
         ttk.Button(row, text="Save firmware…", command=self.build_sounds).pack(side=tk.LEFT, padx=2)
         ttk.Button(row, text="Restore stock", command=lambda: self.stage("stock")).pack(side=tk.LEFT, padx=2)
+        ttk.Label(
+            card,
+            text="This tool writes stock firmware or stock firmware with new sounds. It does not change camera code.\n"
+            "Do not interrupt the flash. The Godox logo holds for about 15 seconds, then the camera restarts.",
+            wraplength=720,
+        ).pack(anchor=tk.W, pady=(6, 0))
 
         snd = ttk.LabelFrame(root, text="Sounds (11.025 kHz; blank = keep stock)", padding=8)
         snd.pack(fill=tk.X, **pad)
@@ -166,11 +173,12 @@ class App(tk.Tk):
             self._slot_mute[i].set(False)
             self._slot_meow[i].set(False)
 
-    def _work(self, fn, *, ok_msg: str = "done") -> None:
+    def _work(self, fn, *, ok_msg: str = "done", done_dialog: str | None = None) -> None:
         if self._busy:
             messagebox.showinfo("C100", "Wait for the current job to finish.")
             return
         self._busy = True
+        self._done_dialog = done_dialog
 
         def run() -> None:
             buf = io.StringIO()
@@ -196,6 +204,9 @@ class App(tk.Tk):
                     self.log_line(text.rstrip())
                 if not ok:
                     messagebox.showerror("C100", text.strip() or "failed")
+                elif self._done_dialog:
+                    messagebox.showinfo("Flash the camera", self._done_dialog)
+                self._done_dialog = None
                 self._busy = False
                 self.refresh_status()
         except queue.Empty:
@@ -222,10 +233,28 @@ class App(tk.Tk):
             return
         self._work(lambda: c100.cmd_dump(argparse.Namespace(out=path, from_card=True)))
 
+    def _confirm_write(self, label: str) -> bool:
+        return messagebox.askokcancel(
+            "Write to card",
+            f"Write {label} firmware to the card?\n\n"
+            "This write is stock firmware, or stock firmware with new sounds. "
+            "The camera code does not change.\n\n"
+            "After you eject the card:\n"
+            "1. Put the card in the camera.\n"
+            "2. Connect power. Set the switch to photo.\n"
+            "3. The Godox logo holds for about 15 seconds. That is the flash.\n"
+            "4. The camera turns off, then turns on with the new firmware.\n\n"
+            "Do not interrupt the flash. Do not remove the card. "
+            "Do not remove power. Do not move the switch.",
+        )
+
     def stage(self, image: str) -> None:
-        if not messagebox.askokcancel("Write to card", f"Write {image} firmware to the card?"):
+        if not self._confirm_write(image):
             return
-        self._work(lambda: c100.cmd_stage(argparse.Namespace(image=image, keep=False)))
+        self._work(
+            lambda: c100.cmd_stage(argparse.Namespace(image=image, keep=False)),
+            done_dialog=c100.FLASH_HELP,
+        )
 
     def _sound_reps(self) -> dict[int, Path | str]:
         reps: dict[int, Path | str] = {}
@@ -283,7 +312,7 @@ class App(tk.Tk):
 
     def write_card(self) -> None:
         label = self._label()
-        if not messagebox.askokcancel("Write to card", f"Write {label} firmware to the card?"):
+        if not self._confirm_write(label):
             return
         reps = self._sound_reps()
         test_for = self._test_for.get()
@@ -296,7 +325,7 @@ class App(tk.Tk):
             data = c100.compose_firmware(reps=reps or None, test_for=test_for, volume=volume)
             c100.stage_image(data, label, eject=True)
 
-        self._work(go)
+        self._work(go, done_dialog=c100.FLASH_HELP)
 
 
 def main() -> None:

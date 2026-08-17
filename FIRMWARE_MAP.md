@@ -32,9 +32,13 @@ Flash cycle:
 
 1. Remove power from the camera.
 2. Set the switch to off.
-3. Set the switch to photo. Wait about 10 s.
-4. Set the switch to off.
-5. Set the switch to photo again.
+3. Put the card in the camera. Connect power. Set the switch to photo.
+4. The Godox logo holds for about 15 seconds. That is the flash.
+5. The camera turns off, then turns on with the new firmware.
+
+**WARNING:** Do not interrupt the flash. Do not remove the card. Do not remove power. Do not move the switch while the logo holds.
+
+`tools/c100.py` will not write an image that is not stock firmware or stock firmware with new sounds.
 
 If preview stops, USB does not mount. Use a card reader. Write stock firmware as `gp_cardvr_upgrade.bin`.
 
