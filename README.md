@@ -2,7 +2,7 @@
 
 Godox C100 GHDK is a tool that changes the five firmware sounds on a Godox C100.
 
-This kit does not contain official stock firmware. You must add the official firmware file. It does include one research image. See `firmware/gp_cardvr_upgrade.BAYER.bin`.
+This kit does not contain official stock firmware. You must add the official firmware file.
 
 **WARNING:** Do not interrupt the flash. A flash that stops in the middle can stop the camera. The camera can refuse to start. A card with stock firmware does not always repair this.
 
@@ -16,7 +16,6 @@ This tool writes stock firmware, or stock firmware with new sounds. It does not 
 | `tools/c100_gui.py` | Desktop window |
 | `sounds/meow.wav` | Sample sound |
 | `sounds/icanfly.wav` | Sample sound |
-| `firmware/gp_cardvr_upgrade.BAYER.bin` | Research image. Proves GC2083 / Bayer. |
 | `FIRMWARE_MAP.md` | Hardware, layout, addresses, dump results |
 
 ## Firmware that you must add
@@ -107,8 +106,6 @@ If the camera does not respond, push the reset hole with a thin pin.
 ## License
 
 The tool and the two WAV files are MIT. Official stock firmware is not in this kit. Godox owns that firmware.
-
-`firmware/gp_cardvr_upgrade.BAYER.bin` is a research image. It is stock firmware plus an extra that reads the sensor id. Godox owns the stock code.
 
 ## Disclaimer
 

@@ -2,7 +2,7 @@
 
 This file is a map of C100 firmware V1.0.0. It records hardware, flash rules, image layout, addresses, and dump results.
 
-This kit does not contain official stock firmware. Get the official file from the Godox site. See README.md. This kit includes `firmware/gp_cardvr_upgrade.BAYER.bin`.
+This kit does not contain official stock firmware. Get the official file from the Godox site. See README.md.
 
 **CAUTION:** A change to the firmware extra can stop the camera. A card with stock firmware does not always repair this.
 
@@ -19,7 +19,7 @@ This kit does not contain official stock firmware. Get the official file from th
 
 Bayer is on this board. It lives on MIPI/CSI. It is not in the encoder buffer.
 
-Proof build: `firmware/gp_cardvr_upgrade.BAYER.bin` (SIDECAR6T). SHA-256 starts with `4423e89e0b7da538`. That file is in this kit.
+Proof build: SIDECAR6T (SHA-256 starts with `4423e89e0b7da538`). That research image is not in this kit.
 
 ## Flash rules
 
@@ -166,14 +166,14 @@ YUV dump size `0x3f4800` = 1920×1080×2. First 2 073 600 bytes = Y (matches the
 
 Hashes are SHA-256 prefixes (16 hex) unless noted. All files are 1 841 152 bytes.
 
-This kit includes `firmware/gp_cardvr_upgrade.BAYER.bin`. Other research builds are not in this kit. Official stock firmware is not in this kit.
+Research builds are not in this kit. Official stock firmware is not in this kit.
 
 ### Keep / products
 
 | File | Hash prefix | Notes |
 |---|---|---|
 | `ORIGINAL/gp_cardvr_upgrade.bin` | `769733179a81f943…79b64` full | Stock vault. Not in this kit. |
-| `firmware/gp_cardvr_upgrade.BAYER.bin` | `4423e89e0b7da538` | In this kit. Same as 6T. Chip id `0x2083`. |
+| SIDECAR6T / BAYER | `4423e89e0b7da538` | Not in this kit. Chip id `0x2083`. |
 | `YUVDUMP.bin` | `63ce133ba003056f` | Same as 6I. Full YUV `DUMPE.BIN` |
 | `SIDECAR6B.bin` | `a1955c5733a0417d` | Proven JPEG sidecar base |
 | `MEOW.bin` / `MUTED.bin` | `8ee20cf8…` / `dcb0f1cc…` | WAV experiments |
