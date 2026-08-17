@@ -1,0 +1,5 @@
+__pycache__/
+*.pyc
+.DS_Store
+firmware/ORIGINAL/gp_cardvr_upgrade.bin
+firmware/*.bin
