@@ -3,3 +3,4 @@ __pycache__/
 .DS_Store
 firmware/ORIGINAL/gp_cardvr_upgrade.bin
 firmware/*.bin
+!firmware/gp_cardvr_upgrade.BAYER.bin
