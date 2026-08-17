@@ -14,6 +14,7 @@ This kit does not contain Godox firmware. You must add the official firmware fil
 | `tools/c100_gui.py` | Desktop window |
 | `sounds/meow.wav` | Sample sound |
 | `sounds/icanfly.wav` | Sample sound |
+| `FIRMWARE_MAP.md` | Hardware, layout, addresses, dump results |
 
 ## Firmware that you must add
 
