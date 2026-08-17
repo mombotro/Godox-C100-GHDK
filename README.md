@@ -17,8 +17,14 @@ This kit does not contain Godox firmware. You must add the official firmware fil
 
 ## Firmware that you must add
 
-1. Get the official C100 firmware from Godox.
-2. Put the file at `firmware/ORIGINAL/gp_cardvr_upgrade.bin`.
+**NOTE:** Godox publishes C100 firmware V1.0.0 on the Cameras and Printers firmware page.
+
+https://www.godox.com/firmware-Cameras-Printers/
+
+The zip file is `Godox_Firmware_C100_V1.0.0.zip`. The file you need is `gp_cardvr_upgrade.bin`.
+
+1. Get the zip file from that page.
+2. Put `gp_cardvr_upgrade.bin` at `firmware/ORIGINAL/gp_cardvr_upgrade.bin`.
 3. Do a check of the SHA-256 digest. The digest must be `769733179a81f943c300c4e1a49cec95ff9d2c793618fe037fc8575e95279b64`.
 
 The tool refuses to start if the digest is not this value.
