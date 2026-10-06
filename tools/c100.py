@@ -29,7 +29,18 @@ ROOT = Path(__file__).resolve().parents[1]
 VAULT = ROOT / "firmware" / "ORIGINAL" / "gp_cardvr_upgrade.bin"
 MEOW_BIN = ROOT / "firmware" / "gp_cardvr_upgrade.MEOW.bin"
 MUTE_BIN = ROOT / "firmware" / "gp_cardvr_upgrade.MUTED.bin"
-EXPECTED_ORIG = "f86b8c1c47b3ee29c494d38ecd5a5300cf36b2156a29d5aecb11f8a73ce922a3"
+# Known stock images. Key: SHA-256 of gp_cardvr_upgrade.bin. "play" holds the
+# offsets of the file names that play() opens at boot.
+FIRMWARES = {
+    "769733179a81f943c300c4e1a49cec95ff9d2c793618fe037fc8575e95279b64": {
+        "version": "V1.0.0",
+        "play": {"shutter": 0xE0D70, "poweron": 0xE0D88},
+    },
+    "f86b8c1c47b3ee29c494d38ecd5a5300cf36b2156a29d5aecb11f8a73ce922a3": {
+        "version": "V1.1.3",
+        "play": {"shutter": 0xE1B80, "poweron": 0xE1B98},
+    },
+}
 FW_SIZE = 1841152
 CARD_CANDIDATES = ("Untitled 2", "Untitled", "NO NAME", "GODDX")
 FLASH_HELP = (
@@ -54,9 +65,17 @@ SLOTS = (
 
 def vault_bytes() -> bytes:
     data = VAULT.read_bytes()
-    if hashlib.sha256(data).hexdigest() != EXPECTED_ORIG:
+    if hashlib.sha256(data).hexdigest() not in FIRMWARES:
         raise SystemExit("vault hash mismatch — refusing to use firmware/ORIGINAL/")
     return data
+
+
+def expected_orig() -> str:
+    """SHA-256 of the stock image in the vault (must be a known firmware)."""
+    h = sha256(VAULT)
+    if h not in FIRMWARES:
+        raise SystemExit("vault hash mismatch — refusing to use firmware/ORIGINAL/")
+    return h
 
 
 def sha256(p: Path) -> str:
@@ -84,14 +103,11 @@ def find_card() -> Path | None:
     for p in _candidate_roots():
         if p.is_dir() and (p / "RESTORE_ORIGINAL.bin").is_file():
             return p
+    names = {n.upper() for n in CARD_CANDIDATES}
     for p in _candidate_roots():
-        for name in CARD_CANDIDATES:
-            if sys.platform == "win32":
-                label = _win_drive_label(p)
-                if label and label.upper() in [n.upper() for n in CARD_CANDIDATES]:
-                    return p
-            elif p.name in CARD_CANDIDATES:
-                return p
+        label = _win_drive_label(p) if sys.platform == "win32" else p.name
+        if label and label.upper() in names:
+            return p
     return None
 
 
@@ -118,7 +134,7 @@ def require_restore(card: Path) -> None:
     restore = card / "RESTORE_ORIGINAL.bin"
     if not restore.is_file():
         raise SystemExit(f"no RESTORE_ORIGINAL.bin on {card}")
-    if sha256(restore) != EXPECTED_ORIG:
+    if sha256(restore) != expected_orig():
         raise SystemExit("RESTORE_ORIGINAL.bin is not the stock vault image")
 
 
@@ -130,7 +146,7 @@ def stage_image(img: bytes, label: str, *, eject: bool) -> None:
     dest = card / "gp_cardvr_upgrade.bin"
     dest.write_bytes(img)
     try:
-        with open(dest, "rb") as fh:
+        with open(dest, "r+b") as fh:
             os.fsync(fh.fileno())
     except OSError:
         pass
@@ -492,10 +508,12 @@ def patch_slots(
 
 
 # play() opens these names at boot. TEST.WAV is 1.25 s and nothing uses it.
-_PLAY_NAME = {
-    "shutter": (0xE1B80, b"CAMERA.WAV"),
-    "poweron": (0xE1B98, b"POWERON_AUDIO.WAV"),
-}
+_PLAY_STOCK = {"shutter": b"CAMERA.WAV", "poweron": b"POWERON_AUDIO.WAV"}
+
+
+def play_names() -> dict[str, tuple[int, bytes]]:
+    offs = FIRMWARES[expected_orig()]["play"]
+    return {k: (offs[k], name) for k, name in _PLAY_STOCK.items()}
 
 
 # Stock TEST.WAV is 8-bit (never played). Same 23480-byte hole holds a
@@ -523,9 +541,9 @@ def rebuild_test_as_s16(img: bytearray) -> None:
 
 def retarget_play_to_test(img: bytearray, which: str) -> None:
     """Make shutter or power-on open TEST.WAV instead."""
-    if which not in _PLAY_NAME:
+    if which not in _PLAY_STOCK:
         raise SystemExit(f"test-for must be shutter or poweron, not {which!r}")
-    off, old = _PLAY_NAME[which]
+    off, old = play_names()[which]
     new = b"TEST.WAV" + b"\x00" * (len(old) - len(b"TEST.WAV"))
     cur = bytes(img[off : off + len(old)])
     if cur.startswith(b"TEST.WAV\x00"):
@@ -579,7 +597,7 @@ def _allowed_sound_ranges(vault: bytes) -> list[tuple[int, int]]:
         if slot["n"] == 5:
             end = slot["off"] + TEST_BLOB
         ranges.append((slot["off"], end))
-    for _which, (off, old) in _PLAY_NAME.items():
+    for _which, (off, old) in play_names().items():
         ranges.append((off, off + len(old)))
     return ranges
 
@@ -590,7 +608,7 @@ def _range_covers(start: int, end: int, ranges: list[tuple[int, int]]) -> bool:
 
 def _play_name_ok(img: bytes) -> list[str]:
     bad = []
-    for which, (off, old) in _PLAY_NAME.items():
+    for which, (off, old) in play_names().items():
         cur = bytes(img[off : off + len(old)])
         new = b"TEST.WAV" + b"\x00" * (len(old) - len(b"TEST.WAV"))
         if cur not in (old, new):
@@ -691,7 +709,7 @@ def cmd_dump(args: argparse.Namespace) -> None:
         if not src.is_file():
             raise SystemExit("no RESTORE_ORIGINAL.bin on the card")
         data = src.read_bytes()
-        if hashlib.sha256(data).hexdigest() != EXPECTED_ORIG:
+        if hashlib.sha256(data).hexdigest() != expected_orig():
             raise SystemExit("card RESTORE is not stock — not writing it as original")
         label = "card RESTORE_ORIGINAL.bin"
     else:
@@ -838,7 +856,8 @@ def cmd_mute(args: argparse.Namespace) -> None:
 
 def cmd_status(_args: argparse.Namespace) -> None:
     v = vault_bytes()
-    print(f"vault     {VAULT}  {EXPECTED_ORIG}")
+    h = expected_orig()
+    print(f"vault     {VAULT}  {h}  ({FIRMWARES[h]['version']})")
     card = find_card()
     if card is None:
         print("card      not mounted")
@@ -846,7 +865,7 @@ def cmd_status(_args: argparse.Namespace) -> None:
     print(f"card      {card}")
     restore = card / "RESTORE_ORIGINAL.bin"
     if restore.is_file():
-        ok = sha256(restore) == EXPECTED_ORIG
+        ok = sha256(restore) == expected_orig()
         print(f"RESTORE   {'ok stock' if ok else 'HASH MISMATCH'}")
     else:
         print("RESTORE   missing")
