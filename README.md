@@ -20,17 +20,24 @@ This tool writes stock firmware, or stock firmware with new sounds. It does not 
 
 ## Firmware that you must add
 
-**NOTE:** Godox publishes C100 firmware V1.0.0 on the Cameras and Printers firmware page.
+**NOTE:** Godox publishes C100 firmware on the Cameras and Printers firmware page.
 
 https://www.godox.com/firmware-Cameras-Printers/
 
-The zip file is `Godox_Firmware_C100_V1.0.0.zip`. The file you need is `gp_cardvr_upgrade.bin`.
+The tool supports these versions:
 
-1. Get the zip file from that page.
-2. Put `gp_cardvr_upgrade.bin` at `firmware/ORIGINAL/gp_cardvr_upgrade.bin`.
-3. Do a check of the SHA-256 digest. The digest must be `769733179a81f943c300c4e1a49cec95ff9d2c793618fe037fc8575e95279b64`.
+| Version | Zip file | SHA-256 of `gp_cardvr_upgrade.bin` | Status |
+| --- | --- | --- | --- |
+| V1.1.3 | `Godox_Firmware_C100_V1.1.3.zip` | `f86b8c1c47b3ee29c494d38ecd5a5300cf36b2156a29d5aecb11f8a73ce922a3` | Tested on a camera (muted image) |
+| V1.0.0 | `Godox_Firmware_C100_V1.0.0.zip` | `769733179a81f943c300c4e1a49cec95ff9d2c793618fe037fc8575e95279b64` | Checked against the binary only |
 
-The tool refuses to start if the digest is not this value.
+The file you need is `gp_cardvr_upgrade.bin` (in V1.1.3 it is named `GP_CARDVR_UPGRADE.BIN`).
+
+1. Get the zip file for the version on your camera. The card file `VERSION.TXT` shows it.
+2. Put the file at `firmware/ORIGINAL/gp_cardvr_upgrade.bin`.
+3. Do a check of the SHA-256 digest. It must be one of the values in the table.
+
+The tool refuses to start if the digest is not in the table. Use the version that matches your camera.
 
 Copy the official file to the card as `RESTORE_ORIGINAL.bin`. Do not overwrite `firmware/ORIGINAL/`.
 

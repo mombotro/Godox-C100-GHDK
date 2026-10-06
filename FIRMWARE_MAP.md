@@ -1,6 +1,6 @@
 # Godox C100 firmware map
 
-This file is a map of C100 firmware V1.0.0. It records hardware, flash rules, image layout, addresses, and dump results.
+This file is a map of C100 firmware V1.0.0. V1.1.3 has the same sound slot layout (see "V1.1.3" below). It records hardware, flash rules, image layout, addresses, and dump results.
 
 This kit does not contain official stock firmware. Get the official file from the Godox site. See README.md.
 
@@ -258,6 +258,21 @@ Those decode scripts are not in this kit.
 
 ## Official firmware
 
-Godox publishes C100 firmware V1.0.0 here:
+Godox publishes C100 firmware (V1.0.0 and V1.1.3) here:
 
 https://www.godox.com/firmware-Cameras-Printers/
+
+## V1.1.3
+
+SHA-256 `f86b8c1c47b3ee29c494d38ecd5a5300cf36b2156a29d5aecb11f8a73ce922a3`. Size 1841152 bytes, the same as V1.0.0. About 800 KB of the bytes differ.
+
+- The five sound slots are at the same addresses as V1.0.0.
+- The file names that `play()` opens at boot have moved:
+
+| Name | V1.0.0 | V1.1.3 |
+| --- | --- | --- |
+| `CAMERA.WAV` | `0xE0D70` | `0xE1B80` |
+| `POWERON_AUDIO.WAV` | `0xE0D88` | `0xE1B98` |
+
+- Tested on a camera: a muted image flashed and all sounds were silent.
+- Offsets first found by dayeggpi (PR #3).
