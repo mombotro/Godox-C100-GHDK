@@ -128,7 +128,7 @@ class App(tk.Tk):
             card_s = "card not mounted"
         else:
             restore = card / "RESTORE_ORIGINAL.bin"
-            if restore.is_file() and c100.sha256(restore) == c100.EXPECTED_ORIG:
+            if restore.is_file() and c100.sha256(restore) == c100.expected_orig():
                 rst = "RESTORE ok"
             elif restore.is_file():
                 rst = "RESTORE HASH MISMATCH"
